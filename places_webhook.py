@@ -9,6 +9,10 @@ PLACES_SEARCH_URL = "https://maps.googleapis.com/maps/api/place/textsearch/json"
 PLACE_DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json"
 PHOTO_BASE_URL = "https://maps.googleapis.com/maps/api/place/photo"
 
+@app.get("/")
+def root():
+    return {"status": "Hey Benson webhook is alive"}
+
 @app.get("/get_venue_info")
 def get_venue_info(query: str, city: str):
     full_query = f"{query}, {city}"
@@ -16,23 +20,37 @@ def get_venue_info(query: str, city: str):
         "query": full_query,
         "key": GOOGLE_API_KEY
     }
-    search_resp = requests.get(PLACES_SEARCH_URL, params=search_params).json()
 
-    if not search_resp.get("results"):
+    try:
+        search_resp = requests.get(PLACES_SEARCH_URL, params=search_params)
+        search_json = search_resp.json()
+    except Exception as e:
+        print("Error fetching place search:", e)
+        print("Raw response:", search_resp.text)
+        raise HTTPException(status_code=500, detail="Failed to fetch or parse Places Search response")
+
+    if not search_json.get("results"):
         raise HTTPException(status_code=404, detail="No place found")
 
-    place_id = search_resp["results"][0]["place_id"]
+    place_id = search_json["results"][0]["place_id"]
     details_params = {
         "place_id": place_id,
         "fields": "name,formatted_address,website,photos",
         "key": GOOGLE_API_KEY
     }
-    details_resp = requests.get(PLACE_DETAILS_URL, params=details_params).json()
 
-    if not details_resp.get("result"):
+    try:
+        details_resp = requests.get(PLACE_DETAILS_URL, params=details_params)
+        details_json = details_resp.json()
+    except Exception as e:
+        print("Error fetching place details:", e)
+        print("Raw response:", details_resp.text)
+        raise HTTPException(status_code=500, detail="Failed to fetch or parse Place Details")
+
+    if not details_json.get("result"):
         raise HTTPException(status_code=404, detail="No details found")
 
-    result = details_resp["result"]
+    result = details_json["result"]
     venue_data = {
         "name": result.get("name"),
         "address": result.get("formatted_address"),
