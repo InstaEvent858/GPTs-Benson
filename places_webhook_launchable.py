@@ -50,6 +50,7 @@ def get_venue_info(query: str, city: str):
         raise HTTPException(status_code=404, detail="No details found")
 
     result = details_json["result"]
+
     venue_data = {
         "name": result.get("name"),
         "address": result.get("formatted_address"),
@@ -67,18 +68,46 @@ def get_venue_info(query: str, city: str):
 
     return venue_data
 
-@app.get("/get_multi_venue_map")
-def get_multi_venue_map(venues: str, city: str):
+
+@app.post("/get_multi_venue_map")
+def get_multi_venue_map(venues: list, city: str):
     """
-    venues: comma-separated list of 'lat|lng|label'
-    e.g., "39.7392|-104.9903|A,39.7502|-104.9999|B"
+    venues: list of dicts with lat, lng, and label.
+    Example payload:
+    {
+      "venues": [
+        {"lat": 32.7341, "lng": -117.1446, "label": "A"},
+        {"lat": 32.8506, "lng": -117.2721, "label": "B"},
+        {"lat": 32.7700, "lng": -117.2510, "label": "C"}
+      ],
+      "city": "San Diego"
+    }
     """
-    marker_params = "&".join(
-        [f"markers=color:red|label:{v.split('|')[2]}|{v.split('|')[0]},{v.split('|')[1]}"
-         for v in venues.split(",")]
+
+    if not venues:
+        raise HTTPException(status_code=400, detail="No venue data provided")
+
+    marker_params = "&".join([
+        f"markers=color:red|label:{v['label']}|{v['lat']},{v['lng']}"
+        for v in venues
+    ])
+
+    static_map_url = (
+        f"{STATIC_MAP_URL}?center={city.replace(' ', '+')}&zoom=12&size=600x400&"
+        f"{marker_params}&key={GOOGLE_API_KEY}"
     )
-    static_map = f"{STATIC_MAP_URL}?center={city}&zoom=13&size=600x400&{marker_params}&key={GOOGLE_API_KEY}"
-    return {"static_map_url": static_map}
+
+    waypoints = "|".join([f"{v['lat']},{v['lng']}" for v in venues[1:]])
+    google_maps_all_link = (
+        f"https://www.google.com/maps/dir/?api=1&destination={venues[0]['lat']},{venues[0]['lng']}"
+        f"&waypoints={waypoints}"
+    )
+
+    return {
+        "static_map_url": static_map_url,
+        "google_maps_all_link": google_maps_all_link
+    }
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
