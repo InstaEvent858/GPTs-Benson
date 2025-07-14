@@ -13,7 +13,7 @@ STATIC_MAP_URL = "https://maps.googleapis.com/maps/api/staticmap"
 
 @app.get("/")
 def root():
-    return {"status": "Hey Benson webhook v3.3 is alive ✅"}
+    return {"status": "Hey Benson webhook v3.3 (embed-ready) is alive ✅"}
 
 @app.get("/get_venue_info")
 def get_venue_info(query: str, city: str):
@@ -69,43 +69,53 @@ def get_venue_info(query: str, city: str):
     return venue_data
 
 
-@app.post("/get_multi_venue_map")
-def get_multi_venue_map(venues: list, city: str):
+@app.get("/get_multi_venue_map")
+def get_multi_venue_map(venues: str, city: str):
     """
-    venues: list of dicts with lat, lng, and label.
-    Example payload:
-    {
-      "venues": [
-        {"lat": 32.7341, "lng": -117.1446, "label": "A"},
-        {"lat": 32.8506, "lng": -117.2721, "label": "B"},
-        {"lat": 32.7700, "lng": -117.2510, "label": "C"}
-      ],
-      "city": "San Diego"
-    }
+    GET request example:
+    /get_multi_venue_map?venues=32.7341|-117.1446|A,32.8506|-117.2721|B,32.7700|-117.2510|C&city=San Diego
     """
 
     if not venues:
         raise HTTPException(status_code=400, detail="No venue data provided")
 
+    venue_list = [
+        {"lat": v.split("|")[0], "lng": v.split("|")[1], "label": v.split("|")[2]}
+        for v in venues.split(",")
+    ]
+
     marker_params = "&".join([
         f"markers=color:red|label:{v['label']}|{v['lat']},{v['lng']}"
-        for v in venues
+        for v in venue_list
     ])
 
+    # ✅ Static map with all pins
     static_map_url = (
         f"{STATIC_MAP_URL}?center={city.replace(' ', '+')}&zoom=12&size=600x400&"
         f"{marker_params}&key={GOOGLE_API_KEY}"
     )
 
-    waypoints = "|".join([f"{v['lat']},{v['lng']}" for v in venues[1:]])
+    # ✅ Clickable Google Maps link
+    waypoints = "|".join([f"{v['lat']},{v['lng']}" for v in venue_list[1:]])
     google_maps_all_link = (
-        f"https://www.google.com/maps/dir/?api=1&destination={venues[0]['lat']},{venues[0]['lng']}"
+        f"https://www.google.com/maps/dir/?api=1"
+        f"&destination={venue_list[0]['lat']},{venue_list[0]['lng']}"
         f"&waypoints={waypoints}"
+    )
+
+    # ✅ Interactive embed (iframe)
+    waypoints_embed = "%7C".join([f"{v['lat']},{v['lng']}" for v in venue_list[1:]])
+    iframe_embed_url = (
+        f"https://www.google.com/maps/embed/v1/directions?key={GOOGLE_API_KEY}"
+        f"&origin={venue_list[0]['lat']},{venue_list[0]['lng']}"
+        f"&destination={venue_list[0]['lat']},{venue_list[0]['lng']}"
+        f"&waypoints={waypoints_embed}"
     )
 
     return {
         "static_map_url": static_map_url,
-        "google_maps_all_link": google_maps_all_link
+        "google_maps_all_link": google_maps_all_link,
+        "iframe_embed_url": iframe_embed_url
     }
 
 
