@@ -1,5 +1,6 @@
 import os
 import requests
+import uvicorn
 from fastapi import FastAPI, HTTPException
 
 app = FastAPI()
@@ -12,6 +13,13 @@ PHOTO_BASE_URL = "https://maps.googleapis.com/maps/api/place/photo"
 @app.get("/")
 def root():
     return {"status": "Hey Benson webhook is alive"}
+
+@app.get("/healthcheck/env")
+def check_env_key():
+    if GOOGLE_API_KEY:
+        return {"env_status": "GOOGLE_API_KEY is set ✅"}
+    else:
+        raise HTTPException(status_code=500, detail="GOOGLE_API_KEY is NOT set ❌")
 
 @app.get("/get_venue_info")
 def get_venue_info(query: str, city: str):
@@ -65,3 +73,8 @@ def get_venue_info(query: str, city: str):
         venue_data["image_url"] = None
 
     return venue_data
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))
+    print(f"👀 Launching Benson webhook on port {port}...")
+    uvicorn.run(app, host="0.0.0.0", port=port)
