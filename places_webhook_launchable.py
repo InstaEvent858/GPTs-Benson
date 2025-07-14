@@ -68,14 +68,12 @@ def get_venue_info(query: str, city: str):
 
     return venue_data
 
-
 @app.get("/get_multi_venue_map")
 def get_multi_venue_map(venues: str, city: str):
     """
-    GET request example:
-    /get_multi_venue_map?venues=32.7341|-117.1446|A,32.8506|-117.2721|B,32.7700|-117.2510|C&city=San Diego
+    GET Example:
+    /get_multi_venue_map?venues=32.7341|-117.1446|A,32.8506|-117.2721|B&city=San Diego
     """
-
     if not venues:
         raise HTTPException(status_code=400, detail="No venue data provided")
 
@@ -89,13 +87,11 @@ def get_multi_venue_map(venues: str, city: str):
         for v in venue_list
     ])
 
-    # ✅ Static map with all pins
     static_map_url = (
         f"{STATIC_MAP_URL}?center={city.replace(' ', '+')}&zoom=12&size=600x400&"
         f"{marker_params}&key={GOOGLE_API_KEY}"
     )
 
-    # ✅ Clickable Google Maps link
     waypoints = "|".join([f"{v['lat']},{v['lng']}" for v in venue_list[1:]])
     google_maps_all_link = (
         f"https://www.google.com/maps/dir/?api=1"
@@ -103,7 +99,6 @@ def get_multi_venue_map(venues: str, city: str):
         f"&waypoints={waypoints}"
     )
 
-    # ✅ Interactive embed (iframe)
     waypoints_embed = "%7C".join([f"{v['lat']},{v['lng']}" for v in venue_list[1:]])
     iframe_embed_url = (
         f"https://www.google.com/maps/embed/v1/directions?key={GOOGLE_API_KEY}"
@@ -117,7 +112,6 @@ def get_multi_venue_map(venues: str, city: str):
         "google_maps_all_link": google_maps_all_link,
         "iframe_embed_url": iframe_embed_url
     }
-
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
