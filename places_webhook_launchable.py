@@ -1,30 +1,36 @@
 import os
 import requests
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 
 app = FastAPI()
 
+API_KEY = os.getenv("API_KEY")  # Your custom key
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 PLACES_SEARCH_URL = "https://maps.googleapis.com/maps/api/place/textsearch/json"
 PLACE_DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json"
 PHOTO_BASE_URL = "https://maps.googleapis.com/maps/api/place/photo"
 STATIC_MAP_URL = "https://maps.googleapis.com/maps/api/staticmap"
 
+def verify_api_key(authorization: str = Header(...)):
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    key = authorization.split(" ")[1]
+    if key != API_KEY:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
 @app.get("/")
 def root():
-    return {"status": "Hey Benson webhook v3.3 (embed-ready) is alive ✅"}
+    return {"status": "Hey Benson webhook v3.4 (Bearer Auth) is alive ✅"}
 
 @app.get("/get_venue_info")
-def get_venue_info(query: str, city: str):
+def get_venue_info(query: str, city: str, authorization: str = Header(...)):
+    verify_api_key(authorization)
     full_query = f"{query}, {city}"
     search_params = {"query": full_query, "key": GOOGLE_API_KEY}
 
-    try:
-        search_resp = requests.get(PLACES_SEARCH_URL, params=search_params)
-        search_json = search_resp.json()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Places Search error: {e}")
+    search_resp = requests.get(PLACES_SEARCH_URL, params=search_params)
+    search_json = search_resp.json()
 
     if not search_json.get("results"):
         raise HTTPException(status_code=404, detail="No place found")
@@ -40,11 +46,8 @@ def get_venue_info(query: str, city: str):
         "key": GOOGLE_API_KEY
     }
 
-    try:
-        details_resp = requests.get(PLACE_DETAILS_URL, params=details_params)
-        details_json = details_resp.json()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Place Details error: {e}")
+    details_resp = requests.get(PLACE_DETAILS_URL, params=details_params)
+    details_json = details_resp.json()
 
     if not details_json.get("result"):
         raise HTTPException(status_code=404, detail="No details found")
@@ -69,13 +72,8 @@ def get_venue_info(query: str, city: str):
     return venue_data
 
 @app.get("/get_multi_venue_map")
-def get_multi_venue_map(venues: str, city: str):
-    """
-    GET Example:
-    /get_multi_venue_map?venues=32.7341|-117.1446|A,32.8506|-117.2721|B&city=San Diego
-    """
-    if not venues:
-        raise HTTPException(status_code=400, detail="No venue data provided")
+def get_multi_venue_map(venues: str, city: str, authorization: str = Header(...)):
+    verify_api_key(authorization)
 
     venue_list = [
         {"lat": v.split("|")[0], "lng": v.split("|")[1], "label": v.split("|")[2]}
